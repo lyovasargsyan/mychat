@@ -98,6 +98,12 @@ Set both generated keys and replace `VAPID_SUBJECT` with a valid `mailto:` addre
 
 For deployment, use a managed PostgreSQL database and set all database variables to its credentials. Keep secrets out of source control. Serve the app over HTTPS; the browser automatically uses secure WebSockets (`wss://`) when the page is HTTPS.
 
+### Deploy to Render
+
+The root-level `render.yaml` is a Render Blueprint that creates the Docker-based web service and its PostgreSQL database in Frankfurt, then wires the database connection and credentials into the app. In the Render Dashboard, create a new Blueprint from this repository and deploy its resources together.
+
+The Blueprint uses Render's free plans for a trial deployment. The free web service spins down after inactivity, and the free PostgreSQL database is limited to 1 GB and expires 30 days after creation. Upgrade the database before storing important messages; after its expiration grace period, Render deletes its data. Free Render services also block outbound SMTP on ports 465 and 587, so account email requires a supported SMTP port (such as 2525, if your provider offers it) or a paid service plan.
+
 Build and run the executable JAR:
 
 ```powershell
