@@ -1,61 +1,69 @@
 package com.classchat.controller;
 
-import com.classchat.dto.ChatMessage;
-import com.classchat.dto.ChatRequest;
+import com.classchat.dto.ChatSendRequest;
+import com.classchat.dto.ConversationMessage;
 import com.classchat.dto.ErrorMessage;
-import com.classchat.service.ChatService;
-import com.classchat.service.InvalidMessageException;
+import com.classchat.service.ApiException;
+import com.classchat.service.ConversationService;
+import com.classchat.service.CurrentUserService;
+import com.classchat.service.PushNotificationService;
+import jakarta.validation.Valid;
+import java.security.Principal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Controller;
 
-/**
- * Receives chat messages from browsers over WebSocket.
- * It looks like a Spring MVC controller, but @MessageMapping handles STOMP messages, not HTTP requests.
- */
 @Controller
 public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
-    private final ChatService chatService;
+    private final ConversationService conversationService;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final CurrentUserService currentUserService;
+    private final PushNotificationService pushNotificationService;
 
-    public ChatController(ChatService chatService) {
-        this.chatService = chatService;
+    public ChatController(ConversationService conversationService,
+                          SimpMessagingTemplate messagingTemplate,
+                          CurrentUserService currentUserService,
+                          PushNotificationService pushNotificationService) {
+        this.conversationService = conversationService;
+        this.messagingTemplate = messagingTemplate;
+        this.currentUserService = currentUserService;
+        this.pushNotificationService = pushNotificationService;
     }
 
-    /**
-     * A browser sends a STOMP SEND frame to "/app/chat.send".
-     * ("/app" is the prefix set in WebSocketConfig; "/chat.send" is the part we map here.)
-     *
-     * @SendTo takes the returned object, converts it to JSON and publishes it to "/topic/messages".
-     * The built-in broker then delivers it to EVERY browser that is subscribed to that topic.
-     */
-    @MessageMapping("/chat.send")
-    @SendTo("/topic/messages")
-    public ChatMessage send(ChatRequest request) {
-        return chatService.process(request);
+    @MessageMapping("/conversations/{id}/send")
+    public void send(@DestinationVariable Long id, @Valid ChatSendRequest request, Principal principal) {
+        ConversationMessage message = conversationService.storeMessage(id, principal.getName(), request.content());
+        for (String member : conversationService.memberHandles(id)) {
+            messagingTemplate.convertAndSendToUser(member, "/queue/conversations/" + id, message);
+        }
+        try {
+            pushNotificationService.notifyConversationMembers(id,
+                    currentUserService.requireByHandle(principal.getName()).getId(),
+                    principal.getName(), message.content(), message.id());
+        } catch (TaskRejectedException exception) {
+            log.warn("Push notification queue is full; saved message {} was delivered without push", message.id());
+        }
     }
 
-    /**
-     * If the service throws InvalidMessageException, nothing is broadcast.
-     * Instead, only the sender receives the error on their private destination "/user/queue/errors".
-     */
-    @MessageExceptionHandler(InvalidMessageException.class)
+    @MessageExceptionHandler(ApiException.class)
     @SendToUser(destinations = "/queue/errors", broadcast = false)
-    public ErrorMessage handleInvalidMessage(InvalidMessageException e) {
-        return new ErrorMessage(e.getMessage());
+    public ErrorMessage handleApiError(ApiException exception) {
+        return new ErrorMessage(exception.getMessage());
     }
 
-    /** Any other problem (for example broken JSON): tell the sender, and write the details in the log. */
     @MessageExceptionHandler
     @SendToUser(destinations = "/queue/errors", broadcast = false)
-    public ErrorMessage handleOther(Exception e) {
-        log.warn("Could not process a chat message", e);
+    public ErrorMessage handleOther(Exception exception) {
+        log.warn("Could not process a chat message", exception);
         return new ErrorMessage("The server could not process your message.");
     }
 }

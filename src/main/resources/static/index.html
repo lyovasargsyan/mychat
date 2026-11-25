@@ -3,57 +3,167 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <!-- TODO 1: Give the app YOUR title. Change <title> here and the <h1> below (id="app-title"). -->
-    <title>DemoChat</title>
-
+    <title>ClassChat</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <main class="app">
-
     <header class="app-header">
-        <h1 id="app-title">DemoChat</h1>
-        <!-- The status text and its color are changed by app.js -->
-        <span id="status" class="status status--disconnected" role="status">Disconnected</span>
+        <a class="brand" href="/" aria-label="ClassChat home"><span class="brand-mark">C</span> ClassChat</a>
+        <div id="account-bar" class="account-bar" hidden>
+            <span id="current-user"></span>
+            <span id="status" class="status status--disconnected" role="status">Offline</span>
+            <button id="enable-notifications" class="button button--quiet" type="button" hidden>
+                Enable notifications
+            </button>
+            <button id="logout-btn" class="button button--quiet" type="button">Sign out</button>
+        </div>
     </header>
 
-    <!-- Step 1: choose a nickname and connect.
-         There is NO required / maxlength here on purpose: the SERVER must check the data (TODO 2),
-         because anybody can bypass a web page. -->
-    <form id="connect-form" class="row" autocomplete="off">
-        <label for="nickname" class="visually-hidden">Nickname</label>
-        <input id="nickname" type="text" placeholder="Your nickname">
-        <button id="connect-btn" type="submit">Connect</button>
-        <button id="disconnect-btn" type="button" class="secondary" disabled>Disconnect</button>
-    </form>
-
-    <!-- Server and connection errors appear here -->
     <div id="error" class="error" role="alert" hidden></div>
+    <div id="notice" class="notice" role="status" hidden></div>
 
-    <!-- The messages. They exist only in this page: reload the page and they are gone. -->
-    <section id="messages" class="messages" role="log" aria-live="polite">
-        <p id="empty-hint" class="empty-hint">
-            Connect, then write a message. Messages are not saved: you only see the messages that are
-            sent while you are connected.
+    <section id="auth-view" class="auth-card">
+        <p class="eyebrow">YOUR PEOPLE, IN ONE PLACE</p>
+        <h1 id="auth-title">Welcome back</h1>
+        <p id="auth-description" class="muted">Sign in to pick up where your conversations left off.</p>
+        <form id="auth-form" class="stack" autocomplete="on">
+            <label id="identity-label" for="identity">Email or @username</label>
+            <input id="identity" name="identity" type="text" autocomplete="username" required>
+            <div id="signup-fields" class="stack" hidden>
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email">
+                <label for="handle">Choose a username</label>
+                <input id="handle" name="handle" type="text" placeholder="@yourname" autocomplete="nickname">
+                <small class="muted">3–30 letters, numbers, or underscores. You can include @.</small>
+            </div>
+            <label id="password-label" for="password">Password</label>
+            <input id="password" name="password" type="password" minlength="8" autocomplete="current-password" required>
+            <div id="verification-fields" class="stack" hidden>
+                <label for="verification-code">6-digit verification code</label>
+                <input id="verification-code" name="verification-code" type="text" inputmode="numeric"
+                       autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6">
+                <button id="resend-code" class="text-button" type="button">Resend verification code</button>
+            </div>
+            <button id="auth-submit" class="button button--primary" type="submit">Sign in</button>
+        </form>
+        <div id="legacy-verification-view" class="stack" hidden>
+            <form id="legacy-verification-form" class="stack" autocomplete="off">
+                <label for="legacy-email">Email used for your account</label>
+                <input id="legacy-email" type="email" autocomplete="email" required>
+                <button id="legacy-send-code" class="button button--secondary" type="button">Send verification code</button>
+                <div id="legacy-code-stage" class="stack" hidden>
+                    <label for="legacy-code">6-digit verification code</label>
+                    <input id="legacy-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                           pattern="[0-9]{6}" maxlength="6">
+                    <button id="legacy-resend-code" class="text-button" type="button">Resend code</button>
+                    <button id="legacy-verify-submit" class="button button--primary" type="submit">Verify email</button>
+                </div>
+                <button id="legacy-change-email" class="text-button" type="button" hidden>Use a different email</button>
+            </form>
+            <button id="legacy-back" class="text-button" type="button">Back to sign in</button>
+        </div>
+        <div id="password-reset-view" class="stack" hidden>
+            <form id="password-reset-form" class="stack" autocomplete="off">
+                <label for="reset-email">Email on your account</label>
+                <input id="reset-email" type="email" autocomplete="email" required>
+                <button id="reset-send-code" class="button button--secondary" type="button">Send reset code</button>
+                <div id="reset-code-stage" class="stack" hidden>
+                    <label for="reset-code">6-digit reset code</label>
+                    <input id="reset-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                           pattern="[0-9]{6}" maxlength="6">
+                    <label for="reset-new-password">New password</label>
+                    <input id="reset-new-password" type="password" minlength="8" maxlength="72"
+                           autocomplete="new-password">
+                    <label for="reset-confirm-password">Confirm new password</label>
+                    <input id="reset-confirm-password" type="password" minlength="8" maxlength="72"
+                           autocomplete="new-password">
+                    <button id="reset-resend-code" class="text-button" type="button">Resend reset code</button>
+                    <button id="reset-submit" class="button button--primary" type="submit">Set new password</button>
+                </div>
+                <button id="reset-change-email" class="text-button" type="button" hidden>Use a different email</button>
+            </form>
+            <button id="reset-back" class="text-button" type="button">Back to sign in</button>
+        </div>
+        <p id="auth-switch-container" class="auth-switch">
+            <span id="auth-switch-label">New to ClassChat?</span>
+            <button id="auth-switch" class="text-button" type="button">Create an account</button>
+        </p>
+        <p id="legacy-verification-link-container" class="auth-switch">
+            <button id="legacy-verification-link" class="text-button" type="button">
+                Verify an existing account
+            </button>
+        </p>
+        <p id="forgot-password-link-container" class="auth-switch">
+            <button id="forgot-password-link" class="text-button" type="button">Forgot password?</button>
         </p>
     </section>
 
-    <!-- Step 2: write a message. It is disabled until you are connected. -->
-    <form id="message-form" autocomplete="off">
-        <div class="row">
-            <label for="message-input" class="visually-hidden">Message</label>
-            <input id="message-input" type="text" placeholder="Write a message..." disabled>
-            <button id="send-btn" type="submit" disabled>Send</button>
-        </div>
-        <!-- TODO 4: app.js should write something like "12 / 500" here while the user types. -->
-        <small id="char-counter" class="counter"></small>
-    </form>
+    <section id="chat-view" class="chat-shell" hidden>
+        <aside class="sidebar">
+            <form id="search-form" class="search-form" autocomplete="off">
+                <label for="user-search" class="section-label">Find people</label>
+                <input id="user-search" type="search" placeholder="Search @username" aria-label="Search users">
+                <div id="search-results" class="search-results" role="list"></div>
+            </form>
 
+            <details class="new-group">
+                <summary>＋ Create a group</summary>
+                <form id="group-form" class="stack compact">
+                    <label for="group-title">Group name</label>
+                    <input id="group-title" type="text" maxlength="80" required>
+                    <label for="group-members">Add people</label>
+                    <input id="group-members" type="text" placeholder="@ana, @ben" required>
+                    <small class="muted">Enter usernames separated by commas.</small>
+                    <button class="button button--secondary" type="submit">Create group</button>
+                </form>
+            </details>
+
+            <div class="conversation-heading">
+                <span class="section-label">Conversations</span>
+                <button id="refresh-btn" class="icon-button" type="button" aria-label="Refresh conversations">↻</button>
+            </div>
+            <nav id="conversation-list" class="conversation-list" aria-label="Conversations"></nav>
+        </aside>
+
+        <section class="conversation-area">
+            <div id="no-conversation" class="welcome-state">
+                <div class="welcome-icon">✳</div>
+                <h1>Your conversations, together.</h1>
+                <p class="muted">Find someone by username or start a group chat.</p>
+            </div>
+
+            <section id="conversation-panel" class="conversation-panel" hidden>
+                <header class="conversation-header">
+                    <div>
+                        <h1 id="conversation-title"></h1>
+                        <p id="conversation-members" class="muted"></p>
+                    </div>
+                    <button id="manage-group-btn" class="button button--quiet" type="button" hidden>Manage group</button>
+                </header>
+                <section id="group-manager" class="group-manager" hidden>
+                    <form id="add-member-form" class="row" autocomplete="off">
+                        <label for="new-member" class="visually-hidden">Username to add</label>
+                        <input id="new-member" type="text" placeholder="@username to add">
+                        <button class="button button--secondary" type="submit">Add member</button>
+                    </form>
+                    <ul id="member-list" class="member-list"></ul>
+                </section>
+                <button id="load-older" class="load-older" type="button" hidden>Load older messages</button>
+                <section id="messages" class="messages" role="log" aria-live="polite">
+                    <p id="empty-hint" class="empty-hint">No messages yet. Say hello!</p>
+                </section>
+                <form id="message-form" class="message-form" autocomplete="off">
+                    <label for="message-input" class="visually-hidden">Message</label>
+                    <input id="message-input" type="text" maxlength="500" placeholder="Write a message..." disabled>
+                    <small id="char-counter" class="counter">0 / 500</small>
+                    <button id="send-btn" class="button button--primary" type="submit" disabled>Send</button>
+                </form>
+            </section>
+        </section>
+    </section>
 </main>
 
-<!-- The STOMP library. It comes from the Maven dependency "stomp__stompjs" (see pom.xml),
-     so it is served by this same application. No internet is needed. -->
 <script src="/webjars/stomp__stompjs/7.3.0/bundles/stomp.umd.min.js"></script>
 <script src="js/app.js"></script>
 </body>

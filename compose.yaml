@@ -1,0 +1,31 @@
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: classchat
+      POSTGRES_USER: classchat
+      POSTGRES_PASSWORD: local-dev-only
+    ports:
+      - "5432:5432"
+    volumes:
+      - classchat-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U classchat -d classchat"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  app:
+    build: .
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      DATABASE_URL: jdbc:postgresql://database:5432/classchat
+      DATABASE_USERNAME: classchat
+      DATABASE_PASSWORD: local-dev-only
+    ports:
+      - "8080:8080"
+
+volumes:
+  classchat-data:
